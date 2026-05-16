@@ -1,13 +1,11 @@
 const axios = require('axios');
 
 /**
- * Transcript Service - Custom implementation with browser-like headers
- * to bypass IP-based blocking on production servers (e.g. Render free tier).
+ * Transcript Service - Multi-strategy implementation
+ * Strategy 1: YouTube timedtext direct API (most reliable)
+ * Strategy 2: Page scraping with multiple regex patterns (fallback)
  */
 class TranscriptService {
-  /**
-   * Extracts video ID from various YouTube URL formats
-   */
   extractVideoId(url) {
     const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
     const match = url.match(regex);
@@ -15,94 +13,142 @@ class TranscriptService {
   }
 
   /**
-   * Fetches transcript using direct YouTube innertube API
-   * This bypasses the IP blocks that affect the youtube-transcript package
+   * Strategy 1: Direct timedtext API
    */
-  async getYoutubeTranscript(url) {
-    const videoId = this.extractVideoId(url);
-    if (!videoId) throw new Error('Invalid YouTube URL. Please paste a valid youtube.com or youtu.be link.');
+  async tryTimedtextAPI(videoId) {
+    const langs = ['en', 'en-US', 'en-GB', 'a.en'];
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    };
 
-    // Step 1: Fetch the video page to get the innertube API key and caption info
-    const browserHeaders = {
+    for (const lang of langs) {
+      try {
+        const res = await axios.get(
+          `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=json3`,
+          { headers, timeout: 10000 }
+        );
+
+        const data = res.data;
+        if (data && data.events && data.events.length > 0) {
+          const text = data.events
+            .filter(e => e.segs)
+            .map(e => e.segs.map(s => s.utf8 || '').join(''))
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          if (text.length > 50) {
+            console.log(`✅ [Strategy 1] Transcript via timedtext API (${lang}): ${text.split(' ').length} words`);
+            return text;
+          }
+        }
+      } catch (e) {
+        console.warn(`⚠️ Timedtext API failed for lang ${lang}:`, e.message);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Strategy 2: Page scraping with robust regex patterns
+   */
+  async tryPageScraping(videoId) {
+    const headers = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept-Language': 'en-US,en;q=0.9',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     };
 
-    let pageHtml;
-    try {
-      const pageRes = await axios.get(`https://www.youtube.com/watch?v=${videoId}`, {
-        headers: browserHeaders,
-        timeout: 15000,
-      });
-      pageHtml = pageRes.data;
-    } catch (err) {
-      throw new Error('Could not reach YouTube. Please check your internet connection and try again.');
+    const pageRes = await axios.get(
+      `https://www.youtube.com/watch?v=${videoId}`,
+      { headers, timeout: 15000 }
+    );
+    const html = pageRes.data;
+
+    // Try multiple regex patterns for different YouTube HTML versions
+    const patterns = [
+      /"captionTracks":(\[.*?\])/,
+      /"captions":\{"playerCaptionsTracklistRenderer":\{"captionTracks":(\[[\s\S]*?\])/,
+      /captionTracks":"(\[.*?\])"/,
+    ];
+
+    let captionTracks = null;
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+      if (match) {
+        try {
+          captionTracks = JSON.parse(match[1]);
+          if (captionTracks && captionTracks.length > 0) break;
+        } catch (e) {
+          continue;
+        }
+      }
     }
 
-    // Step 2: Extract the innertube API key from the page
-    const apiKeyMatch = pageHtml.match(/"INNERTUBE_API_KEY":"([^"]+)"/);
-    const apiKey = apiKeyMatch ? apiKeyMatch[1] : 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+    if (!captionTracks || captionTracks.length === 0) return null;
 
-    // Step 3: Extract caption tracks from the page HTML
-    const captionsMatch = pageHtml.match(/"captions":\{"playerCaptionsTracklistRenderer":\{"captionTracks":(\[.*?\])/);
-    if (!captionsMatch) {
-      throw new Error('No transcript available for this video. Try a video that shows "Open transcript" on YouTube.');
-    }
-
-    let captionTracks;
-    try {
-      captionTracks = JSON.parse(captionsMatch[1]);
-    } catch {
-      throw new Error('Could not parse transcript data from YouTube.');
-    }
-
-    if (!captionTracks || captionTracks.length === 0) {
-      throw new Error('This video has no captions. Try a video with subtitles or closed captions enabled.');
-    }
-
-    // Step 4: Prefer English track, fallback to first available
+    // Prefer English, fallback to first available
     const track = captionTracks.find(t => t.languageCode === 'en' || t.languageCode === 'en-US')
       || captionTracks[0];
 
-    const captionUrl = track.baseUrl;
+    const captionRes = await axios.get(track.baseUrl, { headers, timeout: 10000 });
+    const xml = captionRes.data;
 
-    // Step 5: Fetch the actual transcript XML
-    let transcriptXml;
-    try {
-      const captionRes = await axios.get(captionUrl, { headers: browserHeaders, timeout: 10000 });
-      transcriptXml = captionRes.data;
-    } catch {
-      throw new Error('Could not download the transcript data. Please try again.');
-    }
+    const textMatches = xml.match(/<text[^>]*>([\s\S]*?)<\/text>/g);
+    if (!textMatches) return null;
 
-    // Step 6: Parse the XML and extract clean text
-    const textMatches = transcriptXml.match(/<text[^>]*>([\s\S]*?)<\/text>/g);
-    if (!textMatches || textMatches.length === 0) {
-      throw new Error('Transcript data was empty. Please try a different video.');
-    }
-
-    const transcript = textMatches
-      .map(tag => {
-        return tag
-          .replace(/<[^>]*>/g, '') // Remove XML tags
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&#39;/g, "'")
-          .replace(/&quot;/g, '"')
-          .replace(/\n/g, ' ')
-          .trim();
-      })
+    const text = textMatches
+      .map(tag => tag
+        .replace(/<[^>]*>/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&#39;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/\n/g, ' ')
+        .trim()
+      )
       .filter(Boolean)
       .join(' ');
 
-    if (!transcript) {
-      throw new Error('Transcript was empty after parsing. Please try a different video.');
+    if (text.length > 50) {
+      console.log(`✅ [Strategy 2] Transcript via page scraping: ${text.split(' ').length} words`);
+      return text;
+    }
+    return null;
+  }
+
+  /**
+   * Main entry point - tries all strategies in order
+   */
+  async getYoutubeTranscript(url) {
+    const videoId = this.extractVideoId(url);
+    if (!videoId) {
+      throw new Error('Invalid YouTube URL. Please paste a valid youtube.com or youtu.be link.');
     }
 
-    console.log(`✅ Transcript fetched for ${videoId}: ${transcript.split(' ').length} words`);
-    return transcript;
+    console.log(`🔍 Fetching transcript for video: ${videoId}`);
+
+    // Try Strategy 1 first
+    try {
+      const result = await this.tryTimedtextAPI(videoId);
+      if (result) return result;
+    } catch (e) {
+      console.warn('Strategy 1 failed:', e.message);
+    }
+
+    // Try Strategy 2 as fallback
+    try {
+      const result = await this.tryPageScraping(videoId);
+      if (result) return result;
+    } catch (e) {
+      console.warn('Strategy 2 failed:', e.message);
+    }
+
+    // All strategies failed
+    throw new Error(
+      'No transcript available for this video. To check: open the video on YouTube → click "..." → look for "Open transcript". If that option is missing, this video has no captions.'
+    );
   }
 }
 
