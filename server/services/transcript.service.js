@@ -49,7 +49,17 @@ class TranscriptService {
 
     } catch (error) {
       console.error('Transcript Service Error:', error.message);
-      throw new Error(error.message || 'Failed to fetch transcript');
+      
+      // Provide a specific message for known errors
+      if (error.message.includes('disabled') || error.message.includes('Could not get')) {
+        throw new Error('Transcript is disabled on this video. Please try a video with closed captions enabled.');
+      } else if (error.message.includes('404') || error.message.includes('not found')) {
+        throw new Error('Video not found. Please check the YouTube URL and try again.');
+      } else if (error.message.includes('429') || error.message.includes('Too Many')) {
+        throw new Error('YouTube is rate-limiting the server. Please wait a minute and try again.');
+      } else {
+        throw new Error('Could not fetch transcript. Make sure the video has captions enabled (check for "Show transcript" option on YouTube).');
+      }
     }
   }
 }
