@@ -47,7 +47,7 @@ function App() {
   const [platformFilter, setPlatformFilter] = useState('all');
   const [currentView, setCurrentView] = useState('dashboard');
   const [showAuth, setShowAuth] = useState(false);
-  const [viewingLanding, setViewingLanding] = useState(false);
+  const [viewingLanding, setViewingLanding] = useState(!authService.getToken()); // Show landing if not logged in
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [url, setUrl] = useState('');
@@ -68,9 +68,13 @@ function App() {
     return matchesSearch && matchesPlatform;
   });
 
-  useEffect(() => { if (isAuthenticated) fetchVault(); }, [isAuthenticated]);
+  useEffect(() => { 
+    if (isAuthenticated && !viewingLanding) fetchVault(); 
+  }, [isAuthenticated, viewingLanding]);
 
   const fetchVault = async () => {
+    const token = authService.getToken();
+    if (!token) return; // Don't fetch if not logged in
     setVaultLoading(true);
     try {
       const res = await axios.get(`${API_URL}/api/content/vault`, { headers: authService.getAuthHeader() });
