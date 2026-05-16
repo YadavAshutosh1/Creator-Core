@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+/* ── CSS Theme Variables ── */
+:root {
+  /* Cinematic Creator Theme */
+  --bg-main:        #0C0A09; /* Deepest background */
+  --bg-surface:     #14110F; /* Sidebar, main wrappers */
+  --bg-card:        #1C1917; /* Content cards */
+  --bg-elevated:    #292524; /* Modals, popovers, elevated inputs */
+  
+  --border-subtle:  #1C1917;
+  --border:         #292524;
+  --border-hover:   #44403C;
+  
+  --text-primary:   #FAFAF9;
+  --text-secondary: #D6D3D1; /* Slightly brighter than muted */
+  --text-muted:     #A8A29E;
+  
+  --accent:         #F59E0B;
+  --accent-hover:   #D97706;
+  --accent-glow:    rgba(245, 158, 11, 0.08);
+}
+
+/* ── Base Styles ── */
+:root {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  --font-serif: 'Playfair Display', serif;
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Override browser blue outline */
+* { outline: none; }
+*:focus-visible {
+  outline: 2px solid rgba(245, 158, 11, 0.5); /* Amber focus ring */
+  outline-offset: 2px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ── Custom Scrollbar ── */
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
