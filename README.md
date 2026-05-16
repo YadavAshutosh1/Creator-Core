@@ -94,5 +94,3 @@ NODE_ENV=development
 3. **Smart Chunking:** Handling 1-hour long transcripts by intelligent context selection.
 4. **Creator Style Learning:** Implementing few-shot prompting to match the user's unique tone.
 
----
-*Created with ❤️ by Antigravity (AI Assistant) for Aadi AI.*
