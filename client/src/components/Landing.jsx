@@ -118,19 +118,19 @@ const Landing = ({ onJoin }) => {
       </nav>
 
       {/* ── 1. Hero Section ── */}
-      <header className="relative z-10 pt-20 pb-32 px-8 max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+      <header className="relative z-10 pt-12 md:pt-20 pb-20 md:pb-32 px-6 md:px-8 max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 md:gap-16 items-center">
         <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }}>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-bold uppercase tracking-widest mb-6">
             <Sparkles className="w-3 h-3" />
             The OS for Modern Creators
           </div>
-          <h1 className="text-6xl md:text-7xl font-extrabold font-display leading-[1.1] mb-8">
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold font-display leading-[1.1] mb-8">
             Turn One Video <br />
-            <span className="flex flex-col sm:flex-row items-center sm:items-start gap-3 mt-3">
+            <span className="flex flex-col sm:flex-row items-start gap-2 md:gap-3 mt-3">
               <span>Into</span>
               <RotatingText 
                 texts={['Viral Content.', 'LinkedIn Posts.', 'Twitter Threads.', 'YouTube Shorts.']}
-                mainClassName="text-amber-500 font-serif italic font-normal tracking-wide px-2 overflow-visible"
+                mainClassName="text-amber-500 font-serif italic font-normal tracking-wide md:px-2 overflow-visible"
                 staggerFrom={"last"}
                 initial={{ y: "100%" }}
                 animate={{ y: 0 }}

@@ -48,6 +48,7 @@ function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [showAuth, setShowAuth] = useState(false);
   const [viewingLanding, setViewingLanding] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -160,10 +161,38 @@ function App() {
 
   return (
     <div className="min-h-screen w-full flex flex-col lg:flex-row overflow-hidden font-sans" style={{ background: 'var(--bg-main)', color: 'var(--text-primary)' }}>
-      <Toaster position="bottom-right" toastOptions={{ style: toastStyle }} />
+      <Toaster 
+        position={window.innerWidth < 768 ? "bottom-center" : "bottom-right"} 
+        toastOptions={{ style: toastStyle }} 
+      />
 
-      {/* ── Sidebar ── */}
-      <aside className="hidden lg:flex w-72 flex-col h-screen shrink-0 transition-colors" style={{ background: 'var(--bg-surface)', borderRight: '1px solid var(--border)' }}>
+      {/* ── Mobile Sidebar Overlay ── */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="fixed inset-0 z-[60] lg:hidden bg-black/60 backdrop-blur-sm"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Sidebar (Desktop & Mobile) ── */}
+      <aside 
+        className={`fixed inset-y-0 left-0 z-[70] lg:relative lg:flex w-72 flex-col h-screen shrink-0 transition-transform duration-300 lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{ background: 'var(--bg-surface)', borderRight: '1px solid var(--border)' }}
+      >
+        {/* Mobile Close Button */}
+        <div className="lg:hidden absolute top-4 -right-12">
+          <button 
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="p-2 rounded-full bg-zinc-900 border border-zinc-800 text-white"
+          >
+            <XCircle className="w-6 h-6" />
+          </button>
+        </div>
         {/* Vault Header */}
         <div className="px-5 pt-6 pb-4" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="flex items-center justify-between mb-4">
@@ -268,17 +297,23 @@ function App() {
             </motion.div>
           ) : (
             <motion.div key="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
-              className="p-8 max-w-7xl mx-auto space-y-8">
+              className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 md:space-y-8">
 
               {/* Page Header */}
               <motion.header variants={fadeUp} initial="hidden" animate="show" className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--accent)' }}>
+                  <button 
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-zinc-800 transition-colors"
+                  >
+                    <Filter className="w-5 h-5 text-amber-500" />
+                  </button>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--accent)' }}>
                     <Rocket className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-base font-semibold text-white leading-none">Creator Core</h1>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">AI Content Repurposing Engine</p>
+                    <h1 className="text-sm md:text-base font-semibold text-white leading-none">Creator Core</h1>
+                    <p className="text-[10px] md:text-[11px] text-zinc-500 mt-0.5">AI Content Repurposing Engine</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
