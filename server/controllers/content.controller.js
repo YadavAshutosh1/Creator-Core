@@ -21,9 +21,9 @@ const extractTranscript = async (req, res) => {
       wordCount: transcript.split(' ').length
     });
   } catch (error) {
-    // If it's a transcript error, return 400 instead of 500
-    const statusCode = error.message.includes('Transcript') || error.message.includes('URL') ? 400 : 500;
-    res.status(statusCode).json({ success: false, error: error.message });
+    console.error('❌ Transcript Error:', error.message);
+    // Always return 400 for transcript errors - they are user-facing (wrong video/no captions)
+    res.status(400).json({ success: false, error: error.message });
   }
 };
 
