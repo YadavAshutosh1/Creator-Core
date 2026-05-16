@@ -39,9 +39,10 @@ exports.register = async (req, res) => {
     });
   } catch (error) {
     console.error('Registration Error:', error.message);
+    const errorMessage = error.code === 11000 ? 'Email already exists' : error.message;
     res.status(400).json({
       success: false,
-      error: error.code === 11000 ? 'Email already exists' : error.message
+      error: errorMessage
     });
   }
 };

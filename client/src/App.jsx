@@ -75,7 +75,10 @@ function App() {
     try {
       const res = await axios.get(`${API_URL}/api/content/vault`, { headers: authService.getAuthHeader() });
       setVault(res.data.data);
-    } catch { console.error('Failed to fetch vault'); }
+    } catch (err) { 
+      console.error('Failed to fetch vault');
+      if (err.response?.status === 401) handleLogout();
+    }
     finally { setVaultLoading(false); }
   };
 

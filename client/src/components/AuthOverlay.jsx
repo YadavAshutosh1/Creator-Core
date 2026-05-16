@@ -19,7 +19,8 @@ const AuthOverlay = ({ onAuthSuccess }) => {
       toast.success(isLogin ? 'Welcome back' : 'Account created');
       onAuthSuccess(data.user);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Authentication failed');
+      const message = err.response?.data?.error || err.response?.data?.message || 'Authentication failed';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
