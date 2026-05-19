@@ -53,6 +53,46 @@ class TranscriptService {
   }
 
   /**
+   * Validates the URL via YouTube oEmbed and returns the canonical 11-char video ID.
+   * YouTube IDs are case-sensitive — a single wrong character yields "no captions".
+   */
+  async resolveVideoId(url) {
+    const extracted = this.extractVideoId(url);
+    if (!extracted) return null;
+
+    try {
+      const res = await axios.get('https://www.youtube.com/oembed', {
+        params: { url: url.trim(), format: 'json' },
+        timeout: 12000,
+        validateStatus: (status) => status < 500,
+      });
+
+      if (res.status === 404) {
+        throw new Error(
+          'This YouTube link looks invalid or the video is unavailable. Copy the link again directly from YouTube (IDs are case-sensitive).'
+        );
+      }
+
+      if (res.status >= 400) {
+        return extracted;
+      }
+
+      const embedMatch = res.data?.html?.match(/embed\/([^"?]+)/);
+      if (embedMatch?.[1]) {
+        return embedMatch[1];
+      }
+
+      return extracted;
+    } catch (error) {
+      if (error.message?.includes('case-sensitive') || error.message?.includes('invalid')) {
+        throw error;
+      }
+      console.warn(`⚠️ oEmbed validation skipped: ${error.message}`);
+      return extracted;
+    }
+  }
+
+  /**
    * Fetch adapter for youtube-transcript (mimics fetch Response)
    */
   async customFetch(url, options = {}) {
@@ -255,7 +295,12 @@ class TranscriptService {
     }
 
     if (!captionTracks?.length) {
-      throw lastError || new Error('No caption tracks from YouTube InnerTube API.');
+      throw (
+        lastError ||
+        new Error(
+          'No captions found for this video. The link may be wrong (YouTube IDs are case-sensitive) or captions may be disabled.'
+        )
+      );
     }
 
     const track = this.pickCaptionTrack(captionTracks);
@@ -298,7 +343,13 @@ class TranscriptService {
     if (msg.includes('Too many requests') || msg.includes('rate-limit') || msg.includes('captcha')) {
       return 'YouTube is rate-limiting requests. Please wait a few minutes and try again.';
     }
-    if (msg.includes('No captions found') || msg.includes('not available')) {
+    if (
+      msg.includes('No captions found') ||
+      msg.includes('not available') ||
+      msg.includes('case-sensitive') ||
+      msg.includes('invalid') ||
+      msg.includes('InnerTube')
+    ) {
       return msg;
     }
     if (msg.includes('Invalid YouTube URL')) {
@@ -312,9 +363,14 @@ class TranscriptService {
   }
 
   async getYoutubeTranscript(url) {
-    const videoId = this.extractVideoId(url);
+    const videoId = await this.resolveVideoId(url);
     if (!videoId) {
       throw new Error('Invalid YouTube URL. Please paste a valid youtube.com or youtu.be link.');
+    }
+
+    const extracted = this.extractVideoId(url);
+    if (extracted && extracted !== videoId) {
+      console.log(`ℹ️ Corrected video ID: ${extracted} → ${videoId}`);
     }
 
     console.log(`🔍 Extracting transcript for Video ID: ${videoId}`);

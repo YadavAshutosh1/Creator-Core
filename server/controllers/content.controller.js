@@ -25,9 +25,12 @@ const extractTranscript = async (req, res) => {
     const msg = error.message || 'Could not fetch transcript';
     const isUserError =
       msg.includes('Invalid YouTube URL') ||
+      msg.includes('invalid') ||
+      msg.includes('case-sensitive') ||
       msg.includes('No captions') ||
       msg.includes('subtitles/CC') ||
-      msg.includes('too short');
+      msg.includes('too short') ||
+      msg.includes('unavailable');
     const status = isUserError ? 400 : 503;
     res.status(status).json({ success: false, error: msg });
   }
