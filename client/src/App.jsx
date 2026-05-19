@@ -60,6 +60,8 @@ function App() {
   const [selectedTone, setSelectedTone] = useState('professional');
   const [customInstruction, setCustomInstruction] = useState('');
   const [customBrandVoice, setCustomBrandVoice] = useState('');
+  const [showPasteTranscript, setShowPasteTranscript] = useState(false);
+  const [pastedTranscript, setPastedTranscript] = useState('');
 
   const filteredVault = vault.filter(item => {
     const matchesSearch = (item.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -95,9 +97,24 @@ function App() {
       setTranscript(res.data.transcript);
       toast.success('Transcript ready');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to fetch transcript');
+      const msg = err.response?.data?.error || 'Failed to fetch transcript';
+      setError(msg);
+      toast.error(msg);
       if (err.response?.status === 401) handleLogout();
+      else if (err.response?.status === 503) setShowPasteTranscript(true);
     } finally { setLoading(false); }
+  };
+
+  const handlePasteTranscript = () => {
+    const text = pastedTranscript.trim();
+    if (text.length < 50) {
+      toast.error('Paste at least 50 characters of transcript text');
+      return;
+    }
+    setError('');
+    setTranscript(text);
+    setAiResults({});
+    toast.success('Transcript loaded from paste');
   };
 
   const handleGenerateAll = async () => {
@@ -375,6 +392,43 @@ function App() {
                         {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Fetch'}
                       </button>
                     </form>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowPasteTranscript((v) => !v)}
+                      className="mt-3 text-[11px] hover:opacity-80 transition-opacity"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      {showPasteTranscript ? 'Hide manual transcript' : 'Or paste transcript manually'}
+                    </button>
+
+                    <AnimatePresence>
+                      {showPasteTranscript && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mt-3 space-y-2 overflow-hidden"
+                        >
+                          <textarea
+                            value={pastedTranscript}
+                            onChange={(e) => setPastedTranscript(e.target.value)}
+                            placeholder="Paste video transcript here if YouTube fetch fails..."
+                            className="w-full h-28 rounded-lg p-3 text-xs focus:outline-none transition-colors resize-none custom-scrollbar placeholder:text-zinc-600"
+                            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={handlePasteTranscript}
+                            disabled={!pastedTranscript.trim()}
+                            style={{ backgroundColor: pastedTranscript.trim() ? 'var(--accent)' : 'rgba(245, 158, 11, 0.4)' }}
+                            className="w-full py-2 rounded-lg text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed transition-opacity"
+                          >
+                            Use pasted transcript
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {/* Transcript Preview — Idea 4 */}
                     <AnimatePresence>
