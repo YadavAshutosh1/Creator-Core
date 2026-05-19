@@ -22,8 +22,14 @@ const extractTranscript = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Transcript Error:', error.message);
-    // Always return 400 for transcript errors - they are user-facing (wrong video/no captions)
-    res.status(400).json({ success: false, error: error.message });
+    const msg = error.message || 'Could not fetch transcript';
+    const isUserError =
+      msg.includes('Invalid YouTube URL') ||
+      msg.includes('No captions') ||
+      msg.includes('subtitles/CC') ||
+      msg.includes('too short');
+    const status = isUserError ? 400 : 503;
+    res.status(status).json({ success: false, error: msg });
   }
 };
 
