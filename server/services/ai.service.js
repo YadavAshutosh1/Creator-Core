@@ -1,28 +1,18 @@
-const OpenAI = require("openai");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 /**
- * AI Orchestrator Service (OpenRouter Edition)
+ * AI Orchestrator Service (Google Gemini Edition)
  * Handles multi-model fallback and professional content generation.
  */
 class AIService {
   constructor() {
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'dummy_key');
     
-    this.client = new OpenAI({
-      baseURL: "https://openrouter.ai/api/v1",
-      apiKey: apiKey || 'dummy_key', // Prevent crash if key is momentarily missing
-      defaultHeaders: {
-        "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "Creator AI Dashboard",
-      },
-    });
-
     // Strategy: Try the fastest/newest model first, fallback to stable options
     this.models = [
-      "google/gemini-2.0-flash-001",    // Primary (Ultra-fast)
-      "google/gemini-pro-1.5",          // Fallback 1
-      "openai/gpt-4o-mini",             // Fallback 2 (Extremely stable)
-      "anthropic/claude-3-haiku",       // Fallback 3
+      "gemini-2.5-flash",          // Primary (Ultra-fast & cost-effective)
+      "gemini-2.0-flash",          // Fallback 1
+      "gemini-1.5-pro",            // Fallback 2 (Higher reasoning)
     ];
   }
 
@@ -30,40 +20,38 @@ class AIService {
    * Generates content with automatic model fallback
    */
   async generateContent(prompt, transcript) {
-    if (!process.env.OPENROUTER_API_KEY) {
-      throw new Error('OPENROUTER_API_KEY is missing in .env');
+    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'dummy_key') {
+      throw new Error('GEMINI_API_KEY is missing in .env');
     }
 
+    const systemInstruction = "You are a world-class viral content strategist for top-tier creators. You specialize in platform-specific repurposing and high-conversion hooks.";
     const userMessage = `${prompt}\n\nCONTENT TRANSCRIPT:\n${transcript}`;
     let lastError = null;
 
     // Orchestration Loop: Try models in order until one succeeds
-    for (const model of this.models) {
+    for (const modelName of this.models) {
       try {
-        console.log(`🤖 Attempting generation with: ${model}`);
+        console.log(`🤖 Attempting generation with: ${modelName}`);
         
-        const response = await this.client.chat.completions.create({
-          model: model,
-          messages: [
-            {
-              role: "system",
-              content: "You are a world-class viral content strategist for top-tier creators. You specialize in platform-specific repurposing and high-conversion hooks.",
-            },
-            {
-              role: "user",
-              content: userMessage,
-            },
-          ],
-          temperature: 0.7,
+        const model = this.genAI.getGenerativeModel({ 
+          model: modelName,
+          systemInstruction: systemInstruction,
         });
 
-        const content = response.choices[0]?.message?.content;
+        const result = await model.generateContent({
+          contents: [{ role: "user", parts: [{ text: userMessage }] }],
+          generationConfig: {
+            temperature: 0.7,
+          }
+        });
+
+        const content = result.response.text();
         if (content) {
-          console.log(`✅ Success with ${model}`);
+          console.log(`✅ Success with ${modelName}`);
           return content;
         }
       } catch (error) {
-        console.warn(`⚠️ Model ${model} failed:`, error.message);
+        console.warn(`⚠️ Model ${modelName} failed:`, error.message);
         lastError = error;
         continue; // Try next model
       }
